@@ -449,7 +449,9 @@ public class PostgreSqlDdlBuilder extends AbstractDdlBuilder {
     protected void printDefaultValue(String defaultValue, int typeCode, StringBuilder ddl) {
         if (defaultValue != null && 
                 ((defaultValue.endsWith("::uuid") && Types.OTHER == typeCode) ||
-                 (defaultValue.contains("::") && Types.ARRAY == typeCode))) {
+                 (defaultValue.contains("::") && Types.ARRAY == typeCode) ||
+                 (defaultValue.endsWith("())")) ||
+                 (defaultValue.endsWith("()")))) {
             ddl.append(defaultValue);
         } else if (Types.BOOLEAN == typeCode || Types.BIT == typeCode) {
             boolean isNull = false;

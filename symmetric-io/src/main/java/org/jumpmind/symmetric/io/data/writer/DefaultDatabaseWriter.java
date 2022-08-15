@@ -55,6 +55,7 @@ import org.jumpmind.symmetric.io.data.Batch;
 import org.jumpmind.symmetric.io.data.CsvData;
 import org.jumpmind.symmetric.io.data.CsvUtils;
 import org.jumpmind.symmetric.io.data.DataContext;
+import org.jumpmind.symmetric.io.data.DataEventType;
 import org.jumpmind.symmetric.io.data.writer.Conflict.DetectConflict;
 import org.jumpmind.symmetric.io.data.writer.Conflict.DetectExpressionKey;
 import org.jumpmind.util.CollectionUtils;
@@ -256,7 +257,7 @@ public class DefaultDatabaseWriter extends AbstractDatabaseWriter {
                         this.currentDmlStatement.getLookupKeyData(getLookupDataMap(data, conflict)));
                 long count = execute(data, values);
                 statistics.get(batch).increment(DataWriterStatisticConstants.INSERTCOUNT, count);
-                statistics.get(batch).increment(String.format("%s %s", targetTable.getName(), DataWriterStatisticConstants.INSERTCOUNT), count);
+                statistics.get(batch).incrementTableStats(targetTable.getName(), DataEventType.INSERT.getCode(), count);
                 if (count > 0) {
                     return LoadStatus.SUCCESS;
                 } else {
@@ -407,7 +408,8 @@ public class DefaultDatabaseWriter extends AbstractDatabaseWriter {
                 lookupDataMap = lookupDataMap == null ? getLookupDataMap(data, conflict) : lookupDataMap;
                 long count = execute(data, this.currentDmlStatement.getLookupKeyData(lookupDataMap));
                 statistics.get(batch).increment(DataWriterStatisticConstants.DELETECOUNT, count);
-                statistics.get(batch).increment(String.format("%s %s", targetTable.getName(), DataWriterStatisticConstants.DELETECOUNT), count);
+                statistics.get(batch).incrementTableStats(targetTable.getName(), DataEventType.DELETE.getCode(), count);
+                
                 if (count > 0) {
                     return LoadStatus.SUCCESS;
                 } else {
@@ -448,21 +450,19 @@ public class DefaultDatabaseWriter extends AbstractDatabaseWriter {
             statistics.get(batch).startTimer(DataWriterStatisticConstants.LOADMILLIS);
             String[] rowData = getRowData(data, CsvData.ROW_DATA);
             String[] oldData = getRowData(data, CsvData.OLD_DATA);
-            ArrayList<String> changedColumnNameList = new ArrayList<String>();
-            ArrayList<String> changedColumnValueList = new ArrayList<String>();
-            ArrayList<Column> changedColumnsList = new ArrayList<Column>();
+            ArrayList<String> changedColumnValueList = new ArrayList<>();
+            ArrayList<Column> changedColumnsList = new ArrayList<>();
             for (int i = 0; i < targetTable.getColumnCount(); i++) {
                 Column column = targetTable.getColumn(i);
                 if (column != null) {
                     if (doesColumnNeedUpdated(i, column, data, rowData, oldData, applyChangesOnly)) {
-                        changedColumnNameList.add(column.getName());
                         changedColumnsList.add(column);
                         changedColumnValueList.add(rowData[i]);
                     }
                 }
             }
 
-            if (changedColumnNameList.size() > 0) {
+            if (changedColumnsList.size() > 0) {
                 Map<String, String> lookupDataMap = null;
                 Conflict conflict = writerSettings.pickConflict(this.targetTable, batch);
                 if (requireNewStatement(DmlType.UPDATE, data, applyChangesOnly,
@@ -589,7 +589,8 @@ public class DefaultDatabaseWriter extends AbstractDatabaseWriter {
                 try {
                     long count = execute(data, values);
                     statistics.get(batch).increment(DataWriterStatisticConstants.UPDATECOUNT, count);
-                    statistics.get(batch).increment(String.format("%s %s", targetTable.getName(), DataWriterStatisticConstants.UPDATECOUNT), count);
+                    statistics.get(batch).incrementTableStats(targetTable.getName(), DataEventType.UPDATE.getCode(), count);
+                    
                     if (count > 0) {
                         return LoadStatus.SUCCESS;
                     } else {
@@ -1019,7 +1020,7 @@ public class DefaultDatabaseWriter extends AbstractDatabaseWriter {
                     || containsEmptyLobColumn;
             if (containsEmptyLobColumn) {
                 // indicate that we are considering the column to be changed
-                data.getChangedDataIndicators()[sourceTable.getColumnIndex(column.getName())] = true;
+                updateChangedDataIndicator(data, column, true);
             }
         } else {
             /*
@@ -1036,9 +1037,23 @@ public class DefaultDatabaseWriter extends AbstractDatabaseWriter {
              * A primary key change isn't indicated in the change data indicators when there is no old
              * data.  Need to update it manually in that case.
              */
-            data.getChangedDataIndicators()[sourceTable.getColumnIndex(column.getName())] = needsUpdated;
+            updateChangedDataIndicator(data, column, needsUpdated);
         }
         return needsUpdated;
+    }
+    
+    protected void updateChangedDataIndicator(CsvData data, Column column, boolean needsUpdated) {
+        boolean[] changeIndicators = data.getChangedDataIndicators();
+        int index = sourceTable.getColumnIndex(column.getName());
+        if (index != -1 && index < changeIndicators.length) {
+            changeIndicators[index] = needsUpdated;
+        } else if (index == -1) {
+            log.warn("Unable to set change indicator because column {} not found on source table {}", column.getName(),
+                    sourceTable.getFullyQualifiedTableName());
+        } else {
+            log.warn("Unable to set change indicator because column {} is index {} on source table {}, but row data has only {} values",
+                    column.getName(), index, sourceTable.getFullyQualifiedTableName(), changeIndicators.length);
+        }
     }
 
     protected void prepare() {

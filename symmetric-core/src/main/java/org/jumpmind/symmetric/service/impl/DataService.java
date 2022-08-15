@@ -1228,6 +1228,8 @@ public class DataService extends AbstractService implements IDataService {
                     loadId, createBy, channelId);
             batchCount++;
             
+            long curBatchId = engine.getSequenceService().currVal(transaction, Constants.SEQUENCE_OUTGOING_BATCH);
+            
             /*
              * Mark incoming batches as OK at the target node because we marked
              * outgoing batches as OK at the source
@@ -1236,7 +1238,8 @@ public class DataService extends AbstractService implements IDataService {
                     transaction,
                     targetNode,
                     String.format(
-                            "update %s_incoming_batch set status='OK', error_flag=0 where node_id='%s' and status != 'OK'",
+                            "update %s_incoming_batch set status='OK', error_flag=0 where node_id='%s' and status != 'OK' "
+                            + "and batch_id < " + curBatchId,
                             tablePrefix, engine.getNodeService().findIdentityNodeId()), true,
                     loadId, createBy);
             batchCount++;
@@ -1296,7 +1299,9 @@ public class DataService extends AbstractService implements IDataService {
                     }
                     
                     //Check the create flag on the specific table reload request
-                    if (currentRequest != null && currentRequest.isCreateTable()
+                    if (triggerRouter.getInitialLoadOrder() > -1
+                            && currentRequest != null
+                            && currentRequest.isCreateTable()
                             && engine.getGroupletService().isTargetEnabled(triggerRouter,
                                     targetNode)) {
                         insertCreateEvent(transaction, targetNode, triggerHistory, triggerRouter.getTrigger().getReloadChannelId(), true,
@@ -1363,7 +1368,8 @@ public class DataService extends AbstractService implements IDataService {
                     }
                     
                     //Check the delete flag on the specific table reload request
-                    if (currentRequest != null && currentRequest.isDeleteFirst()
+                    if (triggerRouter.getInitialLoadOrder() > -1
+                            && currentRequest.isDeleteFirst()
                             && engine.getGroupletService().isTargetEnabled(triggerRouter,
                                     targetNode)) {
                         insertPurgeEvent(transaction, targetNode, triggerRouter, triggerHistory,
@@ -1438,7 +1444,8 @@ public class DataService extends AbstractService implements IDataService {
                     }
                     
                     //Check the before custom sql is present on the specific table reload request
-                    if (currentRequest != null 
+                    if (triggerRouter.getInitialLoadOrder() > -1
+                            && currentRequest != null 
                             && currentRequest.getBeforeCustomSql() != null 
                             && currentRequest.getBeforeCustomSql().length() > 0
                             && engine.getGroupletService().isTargetEnabled(triggerRouter,
@@ -1773,10 +1780,16 @@ public class DataService extends AbstractService implements IDataService {
                     tableNames.add(transform.getFullyQualifiedTargetTableName());
                 }
             } else {
+            	
                 tableNames.add(sourceTableName);
             }
             
             for (String tableName : tableNames) {
+            	if (parameterService.is(ParameterConstants.DB_DELIMITED_IDENTIFIER_MODE)) {
+            		String delimiter = engine.getTargetDialect().getTargetPlatform().getDatabaseInfo().getDelimiterToken();
+            		tableName = tableName.replaceAll("\\.", delimiter + "." + delimiter);
+            		tableName = delimiter + tableName + delimiter;
+            	}
                 sqlStatements.add(String.format(sql, tableName));
             }
         }
@@ -2535,7 +2548,10 @@ public class DataService extends AbstractService implements IDataService {
     }
 
     public void reloadMissingForeignKeyRowsForLoad(String sourceNodeId, long batchId, long rowNumber, Table table, CsvData data, String channelId) {
-        String rowData = CsvUtils.escapeCsvData(data.getCsvData(CsvData.ROW_DATA));
+        String rowData = data.getCsvData(CsvData.ROW_DATA);
+        // Replace all actual newlines and carriage returns with \n and \r strings
+        rowData = rowData.replaceAll("\n", "\\n").replaceAll("\r", "\\r");
+        rowData = CsvUtils.escapeCsvData(rowData);
         Node sourceNode = engine.getNodeService().findNode(sourceNodeId);
         String script = "try { engine.getDataService().sendMissingForeignKeyRowsForLoad(" + batchId + ", \""
                 + engine.getNodeId() + "\", " + rowNumber + ", " + rowData + "); } catch (Exception e) { }";
@@ -2651,7 +2667,9 @@ public class DataService extends AbstractService implements IDataService {
 
     public void sendNewerDataToNode(ISqlTransaction transaction, String targetNodeId, String tableName, String pkCsvData, 
             Date minCreateTime, String winningNodeId) {
-
+        if (pkCsvData != null) {
+            pkCsvData = pkCsvData.replace("\\n", "\n").replace("\\r", "\r");
+        }
         List<Data> datas = transaction.query(getSql("selectData", "whereNewerData"), getDataMapper(),
                 new Object[] { tableName, pkCsvData + "%", pkCsvData, minCreateTime },
                 new int[] { Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.TIMESTAMP });

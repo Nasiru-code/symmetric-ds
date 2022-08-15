@@ -263,6 +263,7 @@ final public class ParameterConstants {
     public final static String DBDIALECT_ORACLE_BULK_LINE_TERMINATOR = "oracle.bulk.load.line.terminator";
     public final static String DBDIALECT_ORACLE_LOAD_QUERY_HINT_PARALLEL_COUNT = "oracle.load.query.hint.parallel.count";
     public final static String DBDIALECT_ORACLE_USE_NTYPES_FOR_SYNC = "oracle.use.ntypes.for.sync";
+    public final static String DBDIALECT_ORACLE_JDBC_LOB_HANDLING = "oracle.jdbc.lob.handling";
     
     public final static String DBDIALECT_TIBERO_USE_TRANSACTION_VIEW = "tibero.use.transaction.view";
     public final static String DBDIALECT_TIBERO_TEMPLATE_NUMBER_SPEC = "tibero.template.precision";
@@ -312,6 +313,7 @@ final public class ParameterConstants {
     public final static String TRIGGER_UPDATE_CAPTURE_CHANGED_DATA_ONLY = "trigger.update.capture.changed.data.only.enabled";
     public final static String TRIGGER_CREATE_BEFORE_INITIAL_LOAD = "trigger.create.before.initial.load.enabled";
     public final static String TRIGGER_CAPTURE_DDL_CHANGES = "trigger.capture.ddl.changes";
+    public final static String TRIGGER_CAPTURE_DDL_DELIMITER = "trigger.capture.ddl.delimiter";
 
     public final static String DB_METADATA_IGNORE_CASE = "db.metadata.ignore.case";
     public final static String DB_NATIVE_EXTRACTOR = "db.native.extractor";

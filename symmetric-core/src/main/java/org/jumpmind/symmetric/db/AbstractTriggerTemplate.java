@@ -505,6 +505,12 @@ abstract public class AbstractTriggerTemplate {
         ddl = FormatUtils.replace("channelExpression", symmetricDialect.preProcessTriggerSqlClause(
                 getChannelExpression(trigger, history, originalTable)), ddl);
         
+        ddl = FormatUtils.replace("externalSelectForDelete", (StringUtils.isBlank(trigger.getExternalSelect()) ? "null"
+                : "(" + convertExternalSelectToDelete(symmetricDialect.preProcessTriggerSqlClause(trigger.getExternalSelect()))
+                        + ")"), ddl);
+        ddl = FormatUtils.replace("externalSelectForInsert", (StringUtils.isBlank(trigger.getExternalSelect()) ? "null"
+                : "(" + convertExternalSelectToInsert(symmetricDialect.preProcessTriggerSqlClause(trigger.getExternalSelect()))
+                        + ")"), ddl);
         ddl = FormatUtils.replace("externalSelect", (StringUtils.isBlank(trigger.getExternalSelect()) ? "null"
                 : "(" + symmetricDialect.preProcessTriggerSqlClause(trigger.getExternalSelect())
                         + ")"), ddl);
@@ -583,10 +589,11 @@ abstract public class AbstractTriggerTemplate {
                         trigger).toString() : "null", ddl);
         
         String oldddl = null;
-        while(ddl != null && (! ddl.equals(oldddl))) {
-            oldddl = ddl;
-            ddl = eval(columnString.isBlobClob, "containsBlobClobColumns", ddl);
-        }
+        for (oldddl = null; ddl != null && !ddl.equals(oldddl); ddl = this
+				.eval(columnString.isBlobClob && !trigger.isUseStreamLobs(), "containsBlobClobColumns", ddl)) {
+			oldddl = ddl;
+		}
+
         oldddl = null;
 
         // some column templates need tableName and schemaName
@@ -673,6 +680,18 @@ abstract public class AbstractTriggerTemplate {
                 break;
         }
         return ddl;
+    }
+    
+    private String convertExternalSelectToDelete(String externalSelect) {
+        externalSelect = FormatUtils.replace("curTriggerValue", oldTriggerValue, externalSelect);
+        externalSelect = FormatUtils.replace("curColumnPrefix", oldColumnPrefix, externalSelect);
+        return externalSelect;
+    }
+    
+    private String convertExternalSelectToInsert(String externalSelect) {
+        externalSelect = FormatUtils.replace("curTriggerValue", newTriggerValue, externalSelect);
+        externalSelect = FormatUtils.replace("curColumnPrefix", newColumnPrefix, externalSelect);
+        return externalSelect;
     }
     
     private String getChannelExpression() {

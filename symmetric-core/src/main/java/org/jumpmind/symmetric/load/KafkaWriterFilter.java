@@ -175,10 +175,14 @@ public class KafkaWriterFilter implements IDatabaseWriterFilter {
 	        this.log.debug("Kafka client config: {}", configs);
         } 
     }
+    
+    public boolean isValidEventType(DataEventType type) {
+    	return type != null && (type == DataEventType.INSERT || type == DataEventType.DELETE || type == DataEventType.UPDATE);
+    }
 
     public boolean beforeWrite(DataContext context, Table table, CsvData data) {
         
-        if (table.getNameLowerCase().startsWith("sym_")) {
+        if (table.getNameLowerCase().startsWith("sym_") || !isValidEventType(data.getDataEventType())) {
             return true;
         } else {
             String[] rowData = data.getParsedData(CsvData.ROW_DATA);
@@ -473,7 +477,8 @@ public class KafkaWriterFilter implements IDatabaseWriterFilter {
                 } 
             } catch (Exception e) {
                 log.warn("Unable to write batch to Kafka " + batchFileName, e);
-                e.printStackTrace();
+                throw new RuntimeException(e);
+//                e.printStackTrace();
             } finally {
                 context.put(KAFKA_TEXT_CACHE, new HashMap<String, List<String>>());
                 tableNameCache.clear();

@@ -41,12 +41,16 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.RSAPrivateKeySpec;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.codec.binary.Base64;
+import org.bouncycastle.asn1.ASN1Sequence;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.asn1.pkcs.RSAPrivateKey;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
@@ -54,10 +58,14 @@ import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v1CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
+import org.bouncycastle.operator.InputDecryptorProvider;
 import org.bouncycastle.operator.bc.BcRSAContentSignerBuilder;
+import org.bouncycastle.pkcs.PKCS8EncryptedPrivateKeyInfo;
+import org.bouncycastle.pkcs.jcajce.JcePKCSPBEInputDecryptorProviderBuilder;
 import org.jumpmind.util.AppUtils;
 
 public class BouncyCastleSecurityService extends SecurityService {
@@ -186,6 +194,7 @@ public class BouncyCastleSecurityService extends SecurityService {
                     chain[0] = store.getCertificate(alias);
                 }
             } else if (fileType.equalsIgnoreCase("pem") || fileType.equalsIgnoreCase("crt")) {
+            	
                 List<Certificate> certs = new ArrayList<Certificate>();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(is));
                 String line = null;
@@ -196,6 +205,24 @@ public class BouncyCastleSecurityService extends SecurityService {
                     } else if (line.contains("BEGIN PRIVATE KEY")) {
                         PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(readPemBytes(reader));
                         key = KeyFactory.getInstance("RSA").generatePrivate(spec);
+                    } else if (line.contains("BEGIN RSA PRIVATE KEY")) {
+                        RSAPrivateKey rsaPrivKey = RSAPrivateKey.getInstance((ASN1Sequence) ASN1Sequence.fromByteArray(readPemBytes(reader)));
+                        RSAPrivateKeySpec rsaPrivKeySpec = new RSAPrivateKeySpec(rsaPrivKey.getModulus(), rsaPrivKey.getPrivateExponent());
+                        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+                        key = keyFactory.generatePrivate(rsaPrivKeySpec);
+                    } else if (line.contains("BEGIN ENCRYPTED PRIVATE KEY")) {
+                     	if (password != null) {
+                     		new BouncyCastleHelper().checkProviderInstalled();
+                            
+                     		InputDecryptorProvider inputDecryptorProvider = new JcePKCSPBEInputDecryptorProviderBuilder()
+                     		        .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(password.toCharArray());
+                     		PKCS8EncryptedPrivateKeyInfo pkInfo = new PKCS8EncryptedPrivateKeyInfo(readPemBytes(reader));
+                        	PrivateKeyInfo info = pkInfo.decryptPrivateKeyInfo(inputDecryptorProvider);
+                            JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
+                            key = converter.getPrivateKey(info);
+                    	} else {
+                    		throw new UnrecoverableKeyException();
+                    	}
                     }
                 }
                 chain = certs.toArray(new X509Certificate[certs.size()]);

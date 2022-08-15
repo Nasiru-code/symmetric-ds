@@ -28,12 +28,11 @@ allprojects {
     group = 'org.jumpmind.symmetric'
     
     repositories {
-        jcenter()
-        maven { url "http://maven.jumpmind.com/repo" }
+        maven { url "https://maven.jumpmind.com/repo" }
         mavenCentral()
-        maven { url "http://maven.vaadin.com/vaadin-addons" }
+        maven { url "https://maven.vaadin.com/vaadin-addons" }
         maven { url 'https://plugins.gradle.org/m2' }
-        maven { url "http://packages.confluent.io/maven/" }
+        maven { url "https://packages.confluent.io/maven/" }
         maven { url "https://repository.mulesoft.org/nexus/content/repositories/public/" }
         maven { url "https://repo1.maven.org/maven2/" }
     }
@@ -240,22 +239,22 @@ subprojects { subproject ->
         javaMailVersion = '1.6.2'
         jdomVersion = '2.0.6'
         jaxbVersion = '2.3.1'
-        gsonVersion = '2.8.6'
+        gsonVersion = '2.9.0'
         jacksonVersion = '2.11.3'
         guavaVersion = '29.0-android'
         junitVersion = '4.13'
-        log4jVersion = '2.13.3'
+        log4jVersion = '2.17.1'
         slf4jVersion = '1.7.30'
         mockitoVersion = '3.2.4'
         powerMockVersion = '2.0.5'
         mysqlVersion = '5.1.45'
         servletVersion = '3.1.0'
-        springVersion = '5.2.9.RELEASE'
+        springVersion = '5.3.20'
         jtdsVersion = '1.3.1'
         bouncyCastleVersion = '1.68'
         animalSnifferVersion = '1.18'
         jnaVersion = '5.6.0'
-        jettyVersion = '9.4.40.v20210413'
+        jettyVersion = '9.4.44.v20210927'
         alpnBootVersion = '8.1.13.v20181017'
         alpnApiVersion = '1.1.3.v20160715'
         websocketVersion = '1.1'
