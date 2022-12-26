@@ -112,6 +112,8 @@ public interface ITriggerRouterService {
     public void saveRouter(Router router);
     
     public List<TriggerRouter> getAllTriggerRoutersForCurrentNode(String sourceNodeGroupId);
+
+    public List<TriggerRouter> getTriggerRoutersForTargetNode(String targetNodeGroupId);
     
     /**
      * Get a list of all the triggers that have been defined for the system.
@@ -167,7 +169,7 @@ public interface ITriggerRouterService {
     public Trigger getTriggerById(String triggerId, boolean refreshCache);
     
     public String getTriggerName(DataEventType dml, int maxTriggerNameLength, Trigger trigger, Table table,
-            List<TriggerHistory> activeTriggerHistories, TriggerHistory oldhist);
+            List<TriggerHistory> activeTriggerHistories, TriggerHistory oldhist, List<String> triggerNamesGeneratedThisSession);
 
     public void insert(TriggerHistory newAuditRecord);
 
